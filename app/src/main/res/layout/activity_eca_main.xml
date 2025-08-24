@@ -92,7 +92,7 @@
                         android:layout_weight=".5"
                         android:height="150dp"
                         android:background="@drawable/btn_radius"
-                        android:text="View Past Elections"
+                        android:text="View Result"
                         app:backgroundTint="#FF669A" />
 
                     <Button

@@ -23,10 +23,10 @@ public class ModuleTestStaticClasses {
 
     @Test
     public void testVoter(){
-        String fName = "Yash";
-        String lName = "Tailor";
+        String fName = "Satyam";
+        String lName = "Yadav";
         String gender = "Male";
-        String dob = "24/12/2000";
+        String dob = "30/04/2004";
         String aadharNum = "222244445555";
         String hasSubmitted = "false";
         String isVerified = "true";

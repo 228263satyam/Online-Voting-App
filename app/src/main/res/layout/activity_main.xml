@@ -71,31 +71,30 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
                     <RadioGroup
+                        android:id="@+id/genderGrp"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:id="@+id/genderGrp">
-                        <LinearLayout
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/male"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal">
-                            <RadioButton
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:id="@+id/male"
-                                android:text="Male"/>
+                            android:text="Male" />
 
-                            <RadioButton
-                                android:id="@+id/female"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Female" />
-                            <RadioButton
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:id="@+id/others"
-                                android:text="Others"/>
-                        </LinearLayout>
+                        <RadioButton
+                            android:id="@+id/female"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Female" />
+
+                        <RadioButton
+                            android:id="@+id/others"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Others" />
                     </RadioGroup>
+
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/filledTextFieldAN"
                         android:layout_width="match_parent"

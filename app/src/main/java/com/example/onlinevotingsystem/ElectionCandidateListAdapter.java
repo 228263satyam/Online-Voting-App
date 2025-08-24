@@ -9,38 +9,55 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.List;
+
 public class ElectionCandidateListAdapter extends RecyclerView.Adapter<ElectionCandidateListAdapter.ElectionCandidateListViewHolder> {
-    private String[] candidateNames;
-    public ElectionCandidateListAdapter(String[] candidateNames){
+    private final List<String> candidateNames;
+    private final OnCandidateClickListener listener;
+    private int selectedPosition = -1;
+
+    public ElectionCandidateListAdapter(List<String> candidateNames, OnCandidateClickListener listener) {
         this.candidateNames = candidateNames;
-//        this.candidateParties = candidateParty;
+        this.listener = listener;
     }
+
     @NonNull
     @Override
     public ElectionCandidateListViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        LayoutInflater inflater = LayoutInflater.from(parent.getContext());
-        View view = inflater.inflate(R.layout.list_item_candidate_layout,parent,false);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.list_item_candidate_layout, parent, false);
         return new ElectionCandidateListViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ElectionCandidateListViewHolder holder, int position) {
-        String candidateName = candidateNames[position];
-//        String candidateParty = candidateParties[position];
+        String candidateName = candidateNames.get(position);
         holder.candidateName.setText(candidateName);
-//        holder.candidateParty.setText(candidateParty);
+        holder.radioButton.setChecked(position == selectedPosition);
+
+        holder.radioButton.setOnClickListener(v -> {
+            selectedPosition = holder.getAdapterPosition();
+            listener.onCandidateSelected(candidateName);
+            notifyDataSetChanged();
+        });
     }
 
     @Override
     public int getItemCount() {
-        return candidateNames.length;
+        return candidateNames.size();
     }
 
-    public class ElectionCandidateListViewHolder extends RecyclerView.ViewHolder{
-        TextView candidateName,candidateParty;
-        RadioButton rdCandidateBtn;
+    public interface OnCandidateClickListener {
+        void onCandidateSelected(String candidate);
+    }
+
+    public static class ElectionCandidateListViewHolder extends RecyclerView.ViewHolder {
+        TextView candidateName;
+        RadioButton radioButton;
+
         public ElectionCandidateListViewHolder(@NonNull View itemView) {
             super(itemView);
+            candidateName = itemView.findViewById(R.id.candidateName);
+            radioButton = itemView.findViewById(R.id.rdCandidateValue);
         }
     }
 }

@@ -1,48 +1,51 @@
 package com.example.onlinevotingsystem;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.os.SharedMemory;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
-import com.google.firebase.auth.AuthResult;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import java.io.IOException;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class LoginActivity extends AppCompatActivity {
 
     private EditText emailTextView, passwordTextView;
-    private Button Btn,btnECA,btnEC,backToRegisterBtn;
+    private Button Btn, btnECA, btnEC, backToRegisterBtn;
     private ProgressBar progressBar;
     public static String curUserType;
 
-    private FirebaseAuth mAuth;
+    private OkHttpClient client;
+    private static final String SUPABASE_URL = "https://jguebadkcrppupsgvnqu.supabase.co";
+    private static final String SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpndWViYWRrY3JwcHVwc2d2bnF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzY0ODI1MzgsImV4cCI6MjA1MjA1ODUzOH0.CZ2KeuqdsRODg2QzpSGfqxlqTpaIDrt8WEEJ1A6JGuU";
+    private static final String PREF_NAME = "UserSession";
+
+    private SharedPreferences sharedPreferences;
+
     @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
-        // taking instance of FirebaseAuth
-        mAuth = FirebaseAuth.getInstance();
-//        if(mAuth.getCurrentUser()!=null){
-//            startActivity(new Intent(getApplicationContext(),MainActivity.class));
-//        }
-        // initialising all views through id defined above
+
+        client = new OkHttpClient();
+        sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+
         emailTextView = findViewById(R.id.emailLogin);
         passwordTextView = findViewById(R.id.password);
         Btn = findViewById(R.id.login);
@@ -50,151 +53,119 @@ public class LoginActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.progressBar);
         btnEC = findViewById(R.id.loginEC);
         backToRegisterBtn = findViewById(R.id.backToRegisterBtn);
-        // Set on Click Listener on Sign-in button
-        Btn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v)
-            {
-                loginUserAccount("voter");
-            }
-        });
 
-        btnEC.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                loginUserAccount("ec");
-            }
-        });
+        checkSession();
 
-        btnECA.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                progressBar.setVisibility(View.VISIBLE);
-                String email, password;
-                email = emailTextView.getText().toString();
-                password = passwordTextView.getText().toString();
-                if(email.contains("@") == false){
-                    Toast.makeText(getApplicationContext(),"Email must have @ in it",Toast.LENGTH_LONG).show();
-                    return;
-                }
-                if(email.contains(".") == false){
-                    Toast.makeText(getApplicationContext(),"Email must have . in it",Toast.LENGTH_LONG).show();
-                    return;
-                }
-                if(email.equals("eca@gov.in") && password.equals("eca123")){
-                    curUserType = "eca";
-                    Toast.makeText(getApplicationContext(),"Successfully logged in",Toast.LENGTH_LONG).show();
-                    startActivity(new Intent(getApplicationContext(),ECAMainActivity.class));
-                }
-            }
-        });
-
-        backToRegisterBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(getApplicationContext(),RegisterActivity.class));
-            }
-        });
+        Btn.setOnClickListener(v -> loginUserAccount("voter"));
+        btnEC.setOnClickListener(v -> loginUserAccount("ec"));
+        btnECA.setOnClickListener(v -> handleECALogin());
+        backToRegisterBtn.setOnClickListener(v -> startActivity(new Intent(getApplicationContext(), RegisterActivity.class)));
     }
 
-    private void loginUserAccount(String type)
-    {
+    private void checkSession() {
+        String userType = sharedPreferences.getString("user_type", "");
+        if (!userType.isEmpty()) {
+            navigateToMainActivity(userType);
+        }
+    }
 
-        // show the visibility of progress bar to show loading
+    private void loginUserAccount(final String type) {
         progressBar.setVisibility(View.VISIBLE);
         curUserType = type;
-        // Take the value of two edit texts in Strings
-        String email, password;
-        email = emailTextView.getText().toString();
-        password = passwordTextView.getText().toString();
 
-        // validations for input email and password
-        if (TextUtils.isEmpty(email)) {
-            Toast.makeText(getApplicationContext(),
-                    "Please enter email!!",
-                    Toast.LENGTH_LONG)
-                    .show();
+        String email = emailTextView.getText().toString();
+        String password = passwordTextView.getText().toString();
+
+        if (TextUtils.isEmpty(email) || TextUtils.isEmpty(password)) {
+            showToast("Please enter email and password!");
+            progressBar.setVisibility(View.GONE);
             return;
         }
 
-        if (TextUtils.isEmpty(password)) {
-            Toast.makeText(getApplicationContext(),
-                    "Please enter password!!",
-                    Toast.LENGTH_LONG)
-                    .show();
+        MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+        JsonObject json = new JsonObject();
+        json.addProperty("email", email);
+        json.addProperty("password", password);
+        RequestBody body = RequestBody.create(json.toString(), JSON);
+
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/auth/v1/token?grant_type=password")
+                .post(body)
+                .addHeader("apikey", SUPABASE_API_KEY)
+                .addHeader("Content-Type", "application/json")
+                .build();
+
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, IOException e) {
+                runOnUiThread(() -> {
+                    showToast("Login failed: " + e.getMessage());
+                    progressBar.setVisibility(View.GONE);
+                });
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, Response response) throws IOException {
+                if (response.isSuccessful()) {
+                    String responseBody = response.body().string();
+                    JsonObject responseObject = JsonParser.parseString(responseBody).getAsJsonObject();
+                    String userId = responseObject.has("user") ? responseObject.getAsJsonObject("user").get("id").getAsString() : "";
+                    saveUserSession(userId,email, type);
+                    runOnUiThread(() -> {
+                        showToast("Login successful!");
+                        navigateToMainActivity(type);
+                        progressBar.setVisibility(View.GONE);
+                    });
+                } else {
+                    runOnUiThread(() -> {
+                        showToast("Login failed! Check your credentials.");
+                        progressBar.setVisibility(View.GONE);
+                    });
+                }
+            }
+        });
+    }
+
+    private void handleECALogin() {
+        progressBar.setVisibility(View.VISIBLE);
+        String email = emailTextView.getText().toString();
+        String password = passwordTextView.getText().toString();
+
+        if (!email.equals("eca@gov.in") || !password.equals("eca123")) {
+            showToast("Invalid ECA credentials");
+            progressBar.setVisibility(View.GONE);
             return;
         }
 
-        // signin existing user
-        mAuth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(
-                        new OnCompleteListener<AuthResult>() {
-                            @Override
-                            public void onComplete(
-                                    @NonNull Task<AuthResult> task)
-                            {
-                                if (task.isSuccessful()) {
-                                    Toast.makeText(getApplicationContext(),
-                                            "Login successful!!",
-                                            Toast.LENGTH_LONG)
-                                            .show();
-
-                                    // hide the progress bar
-                                    progressBar.setVisibility(View.GONE);
-                                    if(type == "ec"){
-                                        startActivity(new Intent(getApplicationContext(), ECMainActivity.class));
-                                        return;
-                                    }
-                                    FirebaseUser curUser = FirebaseAuth.getInstance().getCurrentUser();
-                                    DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
-                                    try{
-                                        DatabaseReference subDbRef = dbRef.child("user-data").child(curUser.getUid());
-                                        subDbRef.addValueEventListener(new ValueEventListener() {
-                                            @Override
-                                            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                                                //Toast.makeText(getApplicationContext(),snapshot.child("hasSubmitted").getValue().toString(),Toast.LENGTH_LONG).show();
-                                                if(snapshot.hasChild("hasSubmitted")){
-                                                    if(snapshot.child("hasSubmitted").getValue().toString().equals("true")){
-                                                        startActivity(new Intent(getApplicationContext(),InfoActivity.class));
-                                                    }else startActivity(new Intent(getApplicationContext(), MainActivity.class));
-                                                }else startActivity(new Intent(getApplicationContext(), MainActivity.class));
-
-                                            }
-
-                                            @Override
-                                            public void onCancelled(@NonNull DatabaseError error) {
-                                                Toast.makeText(getApplicationContext(),error.getMessage(),Toast.LENGTH_LONG).show();
-                                            }
-                                        });
-                                    }catch(Exception e){
-                                        Toast.makeText(getApplicationContext(),e.getMessage(),Toast.LENGTH_LONG).show();
-                                    }
-                                }
-
-                                else {
-
-                                    // sign-in failed
-                                    Toast.makeText(getApplicationContext(),
-                                            "Login failed!!",
-                                            Toast.LENGTH_LONG)
-                                            .show();
-
-                                    // hide the progress bar
-                                    progressBar.setVisibility(View.GONE);
-                                }
-                            }
-                        });
+        saveUserSession("101",email, "eca");
+        showToast("Successfully logged in");
+        navigateToMainActivity("eca");
     }
 
-    public Boolean isCurUserLoggedIn(){
-        try{
-            System.out.println(mAuth.getCurrentUser().getUid());
-        }catch(Exception e){
-            return false;
+
+    private void saveUserSession(String userId,String email, String type) {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString("user_email", email);
+        editor.putString("user_type", type);
+        editor.putString("userId",userId);
+        editor.putBoolean("is_logged_in", true);
+        editor.apply();
+    }
+
+    private void navigateToMainActivity(String type) {
+        Intent intent;
+        if (type.equals("ec")) {
+            intent = new Intent(LoginActivity.this, ECInfoActivity.class);
+        } else if (type.equals("eca")) {
+            intent = new Intent(LoginActivity.this, ECAMainActivity.class);
+        } else {
+            intent = new Intent(LoginActivity.this, InfoActivity.class);
         }
-        return true;
+        startActivity(intent);
+        finish();
     }
-    public void logout(){
-        mAuth.signOut();
+
+    private void showToast(String message) {
+        Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
     }
 }

@@ -1,6 +1,7 @@
 package com.example.onlinevotingsystem;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -29,7 +30,12 @@ public class ECAMainActivity extends AppCompatActivity {
         logout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(getApplicationContext(),LoginActivity.class));
+                SharedPreferences.Editor editor = getSharedPreferences("UserSession", MODE_PRIVATE).edit();
+                editor.clear();
+                editor.apply();
+
+                startActivity(new Intent(getApplicationContext(), LoginActivity.class));
+                finish();
             }
         });
         makeElectionBtn.setOnClickListener(new View.OnClickListener() {

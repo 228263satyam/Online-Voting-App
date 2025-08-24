@@ -50,4 +50,5 @@ public class Election {
     public void setIsDone(String isDone) {
         this.isDone = isDone;
     }
+
 }
